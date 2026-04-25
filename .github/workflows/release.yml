@@ -11,18 +11,11 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.label }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-13
-            label: macos-x86_64
-            archive_name: mcp-span-cli-macos-x86_64.zip
-          - runner: macos-14
-            label: macos-arm64
-            archive_name: mcp-span-cli-macos-arm64.zip
+    name: Build macos-arm64
+    runs-on: macos-14
+
+    env:
+      ARCHIVE_NAME: mcp-span-cli-macos-arm64.zip
 
     steps:
       - name: Checkout
@@ -42,13 +35,13 @@ jobs:
           mkdir -p dist
           cp "$BIN_DIR/MCPSpanCLI" "dist/mcp-span-cli"
           chmod +x "dist/mcp-span-cli"
-          ditto -c -k --sequesterRsrc --keepParent dist "${{ matrix.archive_name }}"
+          ditto -c -k --sequesterRsrc --keepParent dist "$ARCHIVE_NAME"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.archive_name }}
-          path: ${{ matrix.archive_name }}
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE_NAME }}
 
   release:
     name: Publish release

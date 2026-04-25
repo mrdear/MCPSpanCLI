@@ -19,7 +19,9 @@ case "$uname_m" in
     archive_name="mcp-span-cli-macos-arm64.zip"
     ;;
   x86_64)
-    archive_name="mcp-span-cli-macos-x86_64.zip"
+    echo "This installer currently publishes Apple Silicon binaries only." >&2
+    echo "Please build from source on Intel Macs." >&2
+    exit 1
     ;;
   *)
     echo "Unsupported architecture: $uname_m" >&2

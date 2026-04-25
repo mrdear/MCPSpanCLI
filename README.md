@@ -68,16 +68,15 @@ Or run the built binary directly:
 
 ## Release
 
-GitHub Actions builds release archives for:
+GitHub Actions builds a release archive for:
 
 - macOS Apple Silicon
-- macOS Intel
 
-Push a tag such as `v0.1.0` to trigger the release workflow:
+Push a tag such as `v0.1.2` to trigger the release workflow:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 The workflow uploads the compiled archives to the GitHub Release page for that tag.
