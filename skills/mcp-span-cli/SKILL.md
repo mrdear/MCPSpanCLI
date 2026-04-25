@@ -1,6 +1,6 @@
 ---
 name: "mcp-span-cli"
-description: "Use the local MCPSpanCLI project to inspect configured MCP servers, call their tools, and generate SKILL.md content for those servers."
+description: "Use the released mcp-span-cli binary to inspect configured MCP servers, call their tools, and generate SKILL.md content for those servers."
 ---
 
 # MCPSpanCLI Skill
@@ -11,9 +11,15 @@ Use this skill when you want to turn a configured MCP server into a reusable `SK
 
 - You need to generate a `SKILL.md` from an MCP server that already exists in the local config.
 - You want to inspect a configured MCP server before writing a skill.
-- You want to validate a real MCP tool call through the local CLI.
+- You want to validate a real MCP tool call through the installed CLI.
 
 ## Inputs
+
+Install the CLI first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mrdear/MCPSpanCLI/main/scripts/install.sh | bash
+```
 
 The tool reads config from `~/.config/mcp-span-cli/config.json` by default.
 
@@ -37,31 +43,31 @@ Each server must use one of these transports:
 List tools:
 
 ```bash
-swift run MCPSpanCLI list-tools --server <SERVER_NAME>
+mcp-span-cli list-tools --server <SERVER_NAME>
 ```
 
 Call a tool:
 
 ```bash
-swift run MCPSpanCLI call --server <SERVER_NAME> --tool <TOOL_NAME> --args '<JSON_ARGS>'
+mcp-span-cli call --server <SERVER_NAME> --tool <TOOL_NAME> --args '<JSON_ARGS>'
 ```
 
 Generate a full skill:
 
 ```bash
-swift run MCPSpanCLI gen-skill --server <SERVER_NAME> > SKILL.md
+mcp-span-cli gen-skill --server <SERVER_NAME> > SKILL.md
 ```
 
 Generate a filtered skill:
 
 ```bash
-swift run MCPSpanCLI gen-skill --server <SERVER_NAME> --tool <TOOL_NAME> > SKILL.md
+mcp-span-cli gen-skill --server <SERVER_NAME> --tool <TOOL_NAME> > SKILL.md
 ```
 
 Generate a filtered skill with multiple tools:
 
 ```bash
-swift run MCPSpanCLI gen-skill --server <SERVER_NAME> --tool <TOOL_A> --tool <TOOL_B> > SKILL.md
+mcp-span-cli gen-skill --server <SERVER_NAME> --tool <TOOL_A> --tool <TOOL_B> > SKILL.md
 ```
 
 ## Output expectations

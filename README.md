@@ -18,10 +18,10 @@ This repository now exposes an installable skill at:
 skills/mcp-span-cli/SKILL.md
 ```
 
-After the repository is pushed to GitHub, other users can install it with `npx skills`:
+Other users can install it with `npx skills`:
 
 ```bash
-npx skills add https://github.com/<OWNER>/MCPSpanCLI --skill mcp-span-cli
+npx skills add https://github.com/mrdear/MCPSpanCLI --skill mcp-span-cli
 ```
 
 The `skills` CLI discovers skills from standard locations such as the repository root and `skills/`, so `skills/mcp-span-cli/SKILL.md` follows that expected layout.
@@ -42,13 +42,19 @@ curl -fsSL https://raw.githubusercontent.com/mrdear/MCPSpanCLI/main/scripts/inst
 
 The installer downloads the correct macOS archive for your CPU and installs `mcp-span-cli` into `~/.local/bin`.
 
+After installation, the normal usage style is:
+
+```bash
+mcp-span-cli --help
+```
+
 ## Build
 
 ```bash
 swift build
 ```
 
-You can run the tool through SwiftPM:
+You can run the tool through SwiftPM while developing:
 
 ```bash
 swift run MCPSpanCLI --help
@@ -122,19 +128,19 @@ Example config:
 ### List tools
 
 ```bash
-swift run MCPSpanCLI list-tools --server 12306-mcp
+mcp-span-cli list-tools --server 12306-mcp
 ```
 
 ### Call a tool
 
 ```bash
-swift run MCPSpanCLI call --server 12306-mcp --tool get-current-date --args '{}'
+mcp-span-cli call --server 12306-mcp --tool get-current-date --args '{}'
 ```
 
 Example with arguments:
 
 ```bash
-swift run MCPSpanCLI call --server 12306-mcp --tool get-tickets --args '{"date":"2026-04-26","fromStation":"北京","toStation":"上海","format":"text"}'
+mcp-span-cli call --server 12306-mcp --tool get-tickets --args '{"date":"2026-04-26","fromStation":"北京","toStation":"上海","format":"text"}'
 ```
 
 ### Generate SKILL.md content
@@ -142,13 +148,13 @@ swift run MCPSpanCLI call --server 12306-mcp --tool get-tickets --args '{"date":
 Generate the full skill:
 
 ```bash
-swift run MCPSpanCLI gen-skill --server 12306-mcp > SKILL.md
+mcp-span-cli gen-skill --server 12306-mcp > SKILL.md
 ```
 
 Generate only selected tools:
 
 ```bash
-swift run MCPSpanCLI gen-skill --server 12306-mcp --tool get-current-date --tool get-tickets > SKILL.md
+mcp-span-cli gen-skill --server 12306-mcp --tool get-current-date --tool get-tickets > SKILL.md
 ```
 
 ## Generated output
