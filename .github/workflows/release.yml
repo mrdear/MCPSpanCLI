@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     name: Build macos-arm64
-    runs-on: macos-14
+    runs-on: macos-15
 
     env:
       ARCHIVE_NAME: mcp-span-cli-macos-arm64.zip
@@ -24,7 +24,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "16.4"
 
       - name: Build release binary
         run: swift build -c release

@@ -72,11 +72,11 @@ GitHub Actions builds a release archive for:
 
 - macOS Apple Silicon
 
-Push a tag such as `v0.1.2` to trigger the release workflow:
+Push a tag such as `v0.1.3` to trigger the release workflow:
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v0.1.3
+git push origin v0.1.3
 ```
 
 The workflow uploads the compiled archives to the GitHub Release page for that tag.
