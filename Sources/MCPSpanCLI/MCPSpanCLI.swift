@@ -14,6 +14,7 @@ struct MCPSpanCLI: AsyncParsableCommand {
         """,
         version: BuildInfo.version,
         subcommands: [
+            AddCmd.self,
             GenSkillCmd.self,
             ListToolsCmd.self,
             CallCmd.self

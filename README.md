@@ -2,8 +2,9 @@
 
 `MCPSpanCLI` is a small Swift command-line tool for turning MCP server capabilities into reusable skill documentation.
 
-It does three things:
+It does four things:
 
+- add MCP server config into the local config file
 - list the tools exposed by a configured MCP server
 - call a tool on a configured MCP server
 - generate `SKILL.md` content from a configured MCP server
@@ -123,6 +124,30 @@ Example config:
 `servers` and `mcpServers` are both accepted. For HTTP-based MCP servers, `type: "http"` and `type: "streamable_http"` are both supported.
 
 ## Commands
+
+### Add config
+
+Paste JSON into stdin and let the CLI merge it into `~/.config/mcp-span-cli/config.json`:
+
+```bash
+pbpaste | mcp-span-cli add
+```
+
+Or paste directly in the terminal:
+
+```bash
+mcp-span-cli add
+```
+
+Then paste JSON and finish with `Ctrl-D`.
+
+Accepted input formats include:
+
+- a full config object with `mcpServers`
+- a full config object with `servers`
+- a plain server map such as `{ "filesystem": { ... } }`
+
+For stdio servers, both `arguments` and the more common `args` are accepted. If the config file does not exist yet, `add` creates it automatically.
 
 ### List tools
 

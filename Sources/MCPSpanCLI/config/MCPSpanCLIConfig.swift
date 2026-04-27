@@ -93,8 +93,11 @@ enum MCPServerTransportConfig: Codable, Sendable {
         case type
         case command
         case arguments
+        case args
         case environment
+        case env
         case currentDirectoryPath
+        case cwd
         case url
         case streaming
     }
@@ -112,13 +115,23 @@ enum MCPServerTransportConfig: Codable, Sendable {
         switch type {
         case .stdio:
             let command = try container.decode(String.self, forKey: .command)
-            let arguments = try container.decodeIfPresent([String].self, forKey: .arguments) ?? []
-            let environment =
-                try container.decodeIfPresent([String: String].self, forKey: .environment) ?? [:]
-            let currentDirectoryPath = try container.decodeIfPresent(
+            let decodedArguments = try container.decodeIfPresent([String].self, forKey: .arguments)
+            let decodedArgs = try container.decodeIfPresent([String].self, forKey: .args)
+            let arguments = decodedArguments ?? decodedArgs ?? []
+
+            let decodedEnvironment = try container.decodeIfPresent(
+                [String: String].self,
+                forKey: .environment
+            )
+            let decodedEnv = try container.decodeIfPresent([String: String].self, forKey: .env)
+            let environment = decodedEnvironment ?? decodedEnv ?? [:]
+
+            let decodedCurrentDirectoryPath = try container.decodeIfPresent(
                 String.self,
                 forKey: .currentDirectoryPath
             )
+            let decodedCWD = try container.decodeIfPresent(String.self, forKey: .cwd)
+            let currentDirectoryPath = decodedCurrentDirectoryPath ?? decodedCWD
 
             self = .stdio(
                 command: command,
