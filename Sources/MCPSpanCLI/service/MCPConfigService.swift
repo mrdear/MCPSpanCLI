@@ -60,17 +60,14 @@ struct MCPConfigService {
     func mergeImportedServers(
         from jsonText: String,
         into config: MCPSpanCLIConfig
-    ) throws -> (config: MCPSpanCLIConfig, addedServerNames: [String]) {
+    ) throws -> (config: MCPSpanCLIConfig, addedServerNames: [String], updatedServerNames: [String]) {
         let importedServers = try parseImportedServers(jsonText: jsonText)
-        let duplicatedServerNames = importedServers.keys
+        let updatedServerNames = importedServers.keys
             .filter { config.servers[$0] != nil }
             .sorted()
-
-        guard duplicatedServerNames.isEmpty else {
-            throw ValidationError(
-                "Server already exists in config: \(duplicatedServerNames.joined(separator: ", "))"
-            )
-        }
+        let addedServerNames = importedServers.keys
+            .filter { config.servers[$0] == nil }
+            .sorted()
 
         var updatedConfig = config
 
@@ -78,7 +75,7 @@ struct MCPConfigService {
             updatedConfig.servers[serverName] = importedServers[serverName]
         }
 
-        return (updatedConfig, importedServers.keys.sorted())
+        return (updatedConfig, addedServerNames, updatedServerNames)
     }
 
     func expand(path: String) -> String {
