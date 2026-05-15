@@ -113,13 +113,9 @@ struct MCPServerConfig: Sendable {
                 return .sse(url: url)
             }
 
-            let shouldStream =
-                streaming
-                ?? (type == .streamableHTTP ? true : defaultHTTPStreaming)
-
             return .http(
                 url: url,
-                streaming: shouldStream
+                streaming: streaming ?? defaultHTTPStreaming
             )
         }
 
@@ -231,11 +227,37 @@ extension MCPServerConfig: Codable {
     }
 }
 
-enum MCPServerType: String, Codable, Sendable {
+enum MCPServerType: String, Sendable {
     case stdio
     case http
     case sse
-    case streamableHTTP = "streamable_http"
+}
+
+extension MCPServerType: Codable {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+
+        switch rawValue {
+        case "stdio":
+            self = .stdio
+        case "http", "streamable_http", "streamable-http":
+            self = .http
+        case "sse":
+            self = .sse
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription:
+                    "Unsupported MCP server type '\(rawValue)'. Expected stdio, http, sse, streamable_http, or streamable-http."
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 enum MCPServerTransportConfig: Codable, Sendable {
@@ -292,7 +314,7 @@ enum MCPServerTransportConfig: Codable, Sendable {
                 currentDirectoryPath: currentDirectoryPath
             )
 
-        case .http, .sse, .streamableHTTP:
+        case .http, .sse:
             let url = try container.decode(URL.self, forKey: .url)
             let streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
             self = .http(url: url, streaming: streaming)

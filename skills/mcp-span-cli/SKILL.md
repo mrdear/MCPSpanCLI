@@ -30,8 +30,9 @@ Each URL-based server can use one of these types:
 - `http`
 - `sse`
 - `streamable_http`
+- `streamable-http`
 
-`sse` uses the legacy MCP SSE handshake. Each CLI command connects, performs the requested operation, then disconnects.
+Omitted `type`, `http`, `streamable_http`, and `streamable-http` use the same HTTP transport. `sse` uses the legacy MCP SSE handshake. Each CLI command connects, performs the requested operation, then disconnects.
 
 Stdio servers define `command` and optional `args` directly on the server object.
 

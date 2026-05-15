@@ -100,7 +100,7 @@ Example config:
   },
   "mcpServers": {
     "12306-mcp": {
-      "type": "streamable_http",
+      "type": "http",
       "url": "https://mcp.api-inference.modelscope.net/442fe0e45a0148/mcp"
     },
     "filesystem": {
@@ -115,7 +115,7 @@ Example config:
 }
 ```
 
-`servers` and `mcpServers` are both accepted when reading config. New writes use `mcpServers`. For URL-based MCP servers, `type: "http"`, `type: "sse"`, and `type: "streamable_http"` are supported. `sse` uses the legacy MCP SSE handshake and the CLI disconnects after each command.
+`servers` and `mcpServers` are both accepted when reading config. New writes use `mcpServers`. For URL-based MCP servers, omitted `type`, `type: "http"`, `type: "streamable_http"`, and `type: "streamable-http"` all use the same HTTP transport. `sse` uses the legacy MCP SSE handshake and the CLI disconnects after each command.
 
 ## Commands
 
