@@ -14,8 +14,8 @@ enum MCPClientEndpoint: Sendable {
         environment: [String: String] = [:],
         currentDirectoryPath: String? = nil
     )
-    case http(url: URL, streaming: Bool = true)
-    case sse(url: URL)
+    case http(url: URL, streaming: Bool = true, headers: [String: String] = [:])
+    case sse(url: URL, headers: [String: String] = [:])
 }
 
 struct MCPServerSnapshot: Sendable {
@@ -115,8 +115,8 @@ struct MCPClientService: MCPClientServing {
         let client = Client(name: clientName, version: clientVersion)
 
         switch endpoint {
-        case let .sse(url):
-            let transport = LegacySSEClientTransport(endpoint: url)
+        case let .sse(url, headers):
+            let transport = LegacySSEClientTransport(endpoint: url, headers: headers)
             let initializeResult = try await client.connect(transport: transport)
 
             return MCPClientConnection(
@@ -127,8 +127,14 @@ struct MCPClientService: MCPClientServing {
                 initializeResult: initializeResult
             )
 
-        case let .http(url, streaming):
-            let transport = HTTPClientTransport(endpoint: url, streaming: streaming)
+        case let .http(url, streaming, headers):
+            let transport = HTTPClientTransport(
+                endpoint: url,
+                streaming: streaming,
+                requestModifier: { request in
+                    apply(headers: headers, to: request)
+                }
+            )
             let initializeResult = try await client.connect(transport: transport)
 
             return MCPClientConnection(
@@ -192,6 +198,20 @@ struct MCPClientService: MCPClientServing {
             )
         }
     }
+}
+
+private func apply(headers: [String: String], to request: URLRequest) -> URLRequest {
+    guard !headers.isEmpty else {
+        return request
+    }
+
+    var request = request
+
+    for (name, value) in headers {
+        request.setValue(value, forHTTPHeaderField: name)
+    }
+
+    return request
 }
 
 private struct MCPClientConnection {

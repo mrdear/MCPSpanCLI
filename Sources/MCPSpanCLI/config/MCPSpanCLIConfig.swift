@@ -65,6 +65,7 @@ struct MCPServerConfig: Sendable {
     var environment: [String: String]
     var currentDirectoryPath: String?
     var url: URL?
+    var headers: [String: String]
     var streaming: Bool?
 
     init(
@@ -74,6 +75,7 @@ struct MCPServerConfig: Sendable {
         environment: [String: String] = [:],
         currentDirectoryPath: String? = nil,
         url: URL? = nil,
+        headers: [String: String] = [:],
         streaming: Bool? = nil
     ) {
         self.type = type
@@ -82,6 +84,7 @@ struct MCPServerConfig: Sendable {
         self.environment = environment
         self.currentDirectoryPath = currentDirectoryPath
         self.url = url
+        self.headers = headers
         self.streaming = streaming
     }
 
@@ -95,7 +98,7 @@ struct MCPServerConfig: Sendable {
             )
         }
 
-        return .http(url: url!, streaming: streaming)
+        return .http(url: url!, streaming: streaming, headers: headers)
     }
 
     func endpoint(defaultHTTPStreaming: Bool) -> MCPClientEndpoint {
@@ -110,12 +113,13 @@ struct MCPServerConfig: Sendable {
 
         if let url {
             if type == .sse {
-                return .sse(url: url)
+                return .sse(url: url, headers: headers)
             }
 
             return .http(
                 url: url,
-                streaming: streaming ?? defaultHTTPStreaming
+                streaming: streaming ?? defaultHTTPStreaming,
+                headers: headers
             )
         }
 
@@ -135,6 +139,7 @@ extension MCPServerConfig: Codable {
         case currentDirectoryPath
         case cwd
         case url
+        case headers
         case streaming
     }
 
@@ -170,6 +175,7 @@ extension MCPServerConfig: Codable {
         let decodedCWD = try container.decodeIfPresent(String.self, forKey: .cwd)
         currentDirectoryPath = decodedCurrentDirectoryPath ?? decodedCWD
         url = try container.decodeIfPresent(URL.self, forKey: .url)
+        headers = try container.decodeIfPresent([String: String].self, forKey: .headers) ?? [:]
         streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
 
         if command == nil, url == nil {
@@ -203,6 +209,11 @@ extension MCPServerConfig: Codable {
 
         try container.encodeIfPresent(currentDirectoryPath, forKey: .cwd)
         try container.encodeIfPresent(url?.absoluteString, forKey: .url)
+
+        if !headers.isEmpty {
+            try container.encode(headers, forKey: .headers)
+        }
+
         try container.encodeIfPresent(streaming, forKey: .streaming)
     }
 
@@ -217,10 +228,11 @@ extension MCPServerConfig: Codable {
                 currentDirectoryPath: currentDirectoryPath
             )
 
-        case let .http(url, streaming):
+        case let .http(url, streaming, headers):
             self.init(
                 type: .http,
                 url: url,
+                headers: headers,
                 streaming: streaming
             )
         }
@@ -267,7 +279,7 @@ enum MCPServerTransportConfig: Codable, Sendable {
         environment: [String: String],
         currentDirectoryPath: String?
     )
-    case http(url: URL, streaming: Bool?)
+    case http(url: URL, streaming: Bool?, headers: [String: String])
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -279,6 +291,7 @@ enum MCPServerTransportConfig: Codable, Sendable {
         case currentDirectoryPath
         case cwd
         case url
+        case headers
         case streaming
     }
 
@@ -316,8 +329,9 @@ enum MCPServerTransportConfig: Codable, Sendable {
 
         case .http, .sse:
             let url = try container.decode(URL.self, forKey: .url)
+            let headers = try container.decodeIfPresent([String: String].self, forKey: .headers) ?? [:]
             let streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
-            self = .http(url: url, streaming: streaming)
+            self = .http(url: url, streaming: streaming, headers: headers)
         }
     }
 
@@ -332,9 +346,14 @@ enum MCPServerTransportConfig: Codable, Sendable {
             try container.encode(environment, forKey: .environment)
             try container.encodeIfPresent(currentDirectoryPath, forKey: .currentDirectoryPath)
 
-        case let .http(url, streaming):
+        case let .http(url, streaming, headers):
             try container.encode(MCPServerType.http, forKey: .type)
             try container.encode(url.absoluteString, forKey: .url)
+
+            if !headers.isEmpty {
+                try container.encode(headers, forKey: .headers)
+            }
+
             try container.encodeIfPresent(streaming, forKey: .streaming)
         }
     }

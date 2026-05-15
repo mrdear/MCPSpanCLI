@@ -101,7 +101,10 @@ Example config:
   "mcpServers": {
     "12306-mcp": {
       "type": "http",
-      "url": "https://mcp.api-inference.modelscope.net/442fe0e45a0148/mcp"
+      "url": "https://mcp.api-inference.modelscope.net/442fe0e45a0148/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
     },
     "filesystem": {
       "command": "npx",
@@ -116,6 +119,8 @@ Example config:
 ```
 
 `servers` and `mcpServers` are both accepted when reading config. New writes use `mcpServers`. For URL-based MCP servers, omitted `type`, `type: "http"`, `type: "streamable_http"`, and `type: "streamable-http"` all use the same HTTP transport. `sse` uses the legacy MCP SSE handshake and the CLI disconnects after each command.
+
+URL-based servers can include `headers`. Header values are sent with every HTTP/SSE request.
 
 ## Commands
 

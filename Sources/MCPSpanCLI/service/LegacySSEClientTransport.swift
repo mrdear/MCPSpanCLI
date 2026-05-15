@@ -12,6 +12,7 @@ actor LegacySSEClientTransport: Transport {
     nonisolated let logger: Logger
 
     private let session: URLSession
+    private let headers: [String: String]
     private var isConnected = false
     private var eventTask: Task<Void, Never>?
     private var endpointTimeoutTask: Task<Void, Never>?
@@ -23,11 +24,13 @@ actor LegacySSEClientTransport: Transport {
 
     init(
         endpoint: URL,
+        headers: [String: String] = [:],
         endpointTimeout: Duration = .seconds(10),
         logger: Logger? = nil
     ) {
         self.endpoint = endpoint
         self.session = URLSession(configuration: .default)
+        self.headers = headers
         self.endpointTimeout = endpointTimeout
         self.logger =
             logger
@@ -90,6 +93,7 @@ actor LegacySSEClientTransport: Transport {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        applyHeaders(to: &request)
         request.httpBody = data
 
         let (_, response) = try await session.data(for: request)
@@ -115,6 +119,7 @@ actor LegacySSEClientTransport: Transport {
             request.httpMethod = "GET"
             request.addValue("text/event-stream", forHTTPHeaderField: "Accept")
             request.addValue("no-cache", forHTTPHeaderField: "Cache-Control")
+            applyHeaders(to: &request)
 
             let (stream, response) = try await session.bytes(for: request)
 
@@ -215,6 +220,12 @@ actor LegacySSEClientTransport: Transport {
 
         for waiter in waiters {
             waiter.resume(throwing: error)
+        }
+    }
+
+    private func applyHeaders(to request: inout URLRequest) {
+        for (name, value) in headers {
+            request.setValue(value, forHTTPHeaderField: name)
         }
     }
 }

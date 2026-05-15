@@ -64,10 +64,20 @@ struct DiscoverCmd: AsyncParsableCommand {
 
             return parts.joined(separator: " | ")
 
-        case let .http(url, streaming):
+        case let .http(url, streaming, headers):
             let type = server.type?.rawValue ?? "http"
             let streamingText = streaming.map { $0 ? "true" : "false" } ?? "default"
-            return "\(type) | url=\(url.absoluteString) | streaming=\(streamingText)"
+            var parts = [
+                type,
+                "url=\(url.absoluteString)",
+                "streaming=\(streamingText)"
+            ]
+
+            if !headers.isEmpty {
+                parts.append("headers=\(headers.keys.sorted().joined(separator: ","))")
+            }
+
+            return parts.joined(separator: " | ")
         }
     }
 }
