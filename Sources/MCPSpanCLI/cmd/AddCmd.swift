@@ -38,7 +38,12 @@ struct AddCmd: AsyncParsableCommand {
 
         try configService.saveConfig(result.config, path: globalOptions.configPath)
 
-        print("Added servers: \(result.addedServerNames.joined(separator: ", "))")
+        if !result.addedServerNames.isEmpty {
+            print("Added servers: \(result.addedServerNames.joined(separator: ", "))")
+        }
+        if !result.updatedServerNames.isEmpty {
+            print("Updated servers: \(result.updatedServerNames.joined(separator: ", "))")
+        }
         print("Config updated: \(configService.expand(path: globalOptions.configPath))")
     }
 
