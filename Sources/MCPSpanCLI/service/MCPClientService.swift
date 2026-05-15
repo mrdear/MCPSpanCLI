@@ -15,6 +15,7 @@ enum MCPClientEndpoint: Sendable {
         currentDirectoryPath: String? = nil
     )
     case http(url: URL, streaming: Bool = true)
+    case sse(url: URL)
 }
 
 struct MCPServerSnapshot: Sendable {
@@ -114,6 +115,18 @@ struct MCPClientService: MCPClientServing {
         let client = Client(name: clientName, version: clientVersion)
 
         switch endpoint {
+        case let .sse(url):
+            let transport = LegacySSEClientTransport(endpoint: url)
+            let initializeResult = try await client.connect(transport: transport)
+
+            return MCPClientConnection(
+                session: MCPClientSession(
+                    client: client,
+                    transport: transport
+                ),
+                initializeResult: initializeResult
+            )
+
         case let .http(url, streaming):
             let transport = HTTPClientTransport(endpoint: url, streaming: streaming)
             let initializeResult = try await client.connect(transport: transport)

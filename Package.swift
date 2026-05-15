@@ -20,6 +20,14 @@ let package = Package(
         .package(
             url: "https://github.com/apple/swift-argument-parser",
             from: "1.7.1"
+        ),
+        .package(
+            url: "https://github.com/mattt/eventsource.git",
+            from: "1.1.0"
+        ),
+        .package(
+            url: "https://github.com/apple/swift-log.git",
+            from: "1.5.0"
         )
     ],
     targets: [
@@ -29,6 +37,8 @@ let package = Package(
             name: "MCPSpanCLI",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "EventSource", package: "eventsource"),
+                .product(name: "Logging", package: "swift-log"),
                 .product(name: "MCP", package: "swift-sdk"),
                 .product(name: "SystemPackage", package: "swift-system")
             ]

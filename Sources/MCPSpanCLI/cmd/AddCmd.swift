@@ -1,4 +1,5 @@
 import ArgumentParser
+import Darwin
 import Foundation
 
 struct AddCmd: AsyncParsableCommand {
@@ -11,6 +12,17 @@ struct AddCmd: AsyncParsableCommand {
     var globalOptions: GlobalOptions
 
     func run() async throws {
+        if isInteractiveInput {
+            print(
+                """
+                Paste MCP server JSON, then press Ctrl-D when finished.
+                Accepted formats: full config with mcpServers/servers, a server map, or a single named server.
+
+                """,
+                terminator: ""
+            )
+        }
+
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
 
         guard let jsonText = String(data: inputData, encoding: .utf8) else {
@@ -28,5 +40,9 @@ struct AddCmd: AsyncParsableCommand {
 
         print("Added servers: \(result.addedServerNames.joined(separator: ", "))")
         print("Config updated: \(configService.expand(path: globalOptions.configPath))")
+    }
+
+    private var isInteractiveInput: Bool {
+        isatty(STDIN_FILENO) == 1
     }
 }

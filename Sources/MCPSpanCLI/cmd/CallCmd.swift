@@ -54,7 +54,9 @@ struct CallCmd: AsyncParsableCommand {
             throw ValidationError("The -args value must be a JSON object.")
         }
 
-        return try object.mapValues { try convertToMCPValue($0) }
+        return try object.mapValues {
+            try convertToMCPValue($0)
+        }
     }
 
     private func convertToMCPValue(_ value: Any) throws -> Value {

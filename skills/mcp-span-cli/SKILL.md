@@ -23,13 +23,17 @@ curl -fsSL https://raw.githubusercontent.com/mrdear/MCPSpanCLI/main/scripts/inst
 
 The tool reads config from `~/.config/mcp-span-cli/config.json` by default.
 
-The config should define servers under either `servers` or `mcpServers`.
+The config should define servers under `mcpServers`. Older `servers` config is still readable.
 
-Each server must use one of these transports:
+Each URL-based server can use one of these types:
 
-- `stdio`
 - `http`
+- `sse`
 - `streamable_http`
+
+`sse` uses the legacy MCP SSE handshake. Each CLI command connects, performs the requested operation, then disconnects.
+
+Stdio servers define `command` and optional `args` directly on the server object.
 
 ## Workflow
 

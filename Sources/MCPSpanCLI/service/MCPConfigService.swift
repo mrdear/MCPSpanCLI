@@ -4,7 +4,7 @@ import Foundation
 struct MCPConfigService {
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return encoder
     }()
 
@@ -90,66 +90,161 @@ struct MCPConfigService {
 
         guard !trimmedText.isEmpty else {
             throw ValidationError(
-                "No JSON was provided on stdin. Paste the MCP config and finish with Ctrl-D."
+                "No JSON was provided. Paste the MCP server JSON and finish with Ctrl-D."
             )
         }
 
         let data = Data(trimmedText.utf8)
         let decoder = JSONDecoder()
+        let rawJSON: Any
 
-        if let payload = try? decoder.decode(ImportedConfigPayload.self, from: data) {
-            if let servers = payload.servers, !servers.isEmpty {
+        do {
+            rawJSON = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw ValidationError(
+                "Invalid JSON syntax: \(error.localizedDescription)"
+            )
+        }
+
+        guard let object = rawJSON as? [String: Any] else {
+            throw ValidationError(
+                "Invalid add input: top-level JSON must be an object, for example { \"mcpServers\": { \"name\": { ... } } }."
+            )
+        }
+
+        let wrapperKey = ["mcpServers", "servers"].first { object[$0] != nil }
+
+        if let wrapperKey {
+            let payload: ImportedConfigPayload
+
+            do {
+                payload = try decoder.decode(ImportedConfigPayload.self, from: data)
+            } catch {
+                throw ValidationError(
+                    "Invalid '\(wrapperKey)' config: \(formatDecodingError(error))"
+                )
+            }
+
+            if wrapperKey == "mcpServers", let servers = payload.mcpServers {
+                guard !servers.isEmpty else {
+                    throw ValidationError("'mcpServers' must contain at least one server.")
+                }
+
                 return try normalizeImportedServers(servers)
             }
 
-            if let servers = payload.mcpServers, !servers.isEmpty {
+            if wrapperKey == "servers", let servers = payload.servers {
+                guard !servers.isEmpty else {
+                    throw ValidationError("'servers' must contain at least one server.")
+                }
+
                 return try normalizeImportedServers(servers)
+            }
+
+            throw ValidationError(
+                "'\(wrapperKey)' must be an object whose keys are server names."
+            )
+        }
+
+        if isSingleNamedServerObject(object) {
+            do {
+                let namedServer = try decoder.decode(ImportedNamedServer.self, from: data)
+                return [
+                    namedServer.name: namedServer.server
+                ]
+            } catch {
+                throw ValidationError(
+                    "Invalid named server config: \(formatDecodingError(error))"
+                )
             }
         }
 
-        if let servers = try? decoder.decode([String: ImportedServerConfig].self, from: data),
-            !servers.isEmpty
-        {
+        do {
+            let servers = try decoder.decode([String: MCPServerConfig].self, from: data)
+            guard !servers.isEmpty else {
+                throw ValidationError("Server map must contain at least one server.")
+            }
+
             return try normalizeImportedServers(servers)
+        } catch let error as ValidationError {
+            throw error
+        } catch {
+            throw ValidationError(
+                "Invalid server map config: \(formatDecodingError(error))"
+            )
         }
-
-        if let namedServer = try? decoder.decode(ImportedNamedServer.self, from: data) {
-            return [
-                namedServer.name: try namedServer.server.toMCPServerConfig()
-            ]
-        }
-
-        throw ValidationError(
-            """
-            Unsupported JSON format. Expected one of:
-            1. { "mcpServers": { "name": { ... } } }
-            2. { "servers": { "name": { ... } } }
-            3. { "name": { ... } }
-            """
-        )
     }
 
-    private func normalizeImportedServers(_ servers: [String: ImportedServerConfig]) throws
+    private func normalizeImportedServers(_ servers: [String: MCPServerConfig]) throws
         -> [String: MCPServerConfig]
     {
         var normalizedServers: [String: MCPServerConfig] = [:]
 
         for (serverName, serverConfig) in servers {
-            normalizedServers[serverName] = try serverConfig.toMCPServerConfig()
+            normalizedServers[serverName] = serverConfig
         }
 
         return normalizedServers
     }
+
+    private func isSingleNamedServerObject(_ object: [String: Any]) -> Bool {
+        guard object["name"] is String else {
+            return false
+        }
+
+        let serverConfigKeys: Set<String> = [
+            "transport",
+            "type",
+            "command",
+            "arguments",
+            "args",
+            "environment",
+            "env",
+            "currentDirectoryPath",
+            "cwd",
+            "url",
+            "streaming"
+        ]
+
+        return object.keys.contains { serverConfigKeys.contains($0) }
+    }
+
+    private func formatDecodingError(_ error: Error) -> String {
+        guard let decodingError = error as? DecodingError else {
+            return error.localizedDescription
+        }
+
+        switch decodingError {
+        case let .keyNotFound(key, context):
+            return "missing required key '\(pathDescription(context.codingPath + [key]))'."
+        case let .typeMismatch(type, context):
+            return "expected \(type) at '\(pathDescription(context.codingPath))'. \(context.debugDescription)"
+        case let .valueNotFound(type, context):
+            return "missing value for \(type) at '\(pathDescription(context.codingPath))'."
+        case let .dataCorrupted(context):
+            return "invalid value at '\(pathDescription(context.codingPath))'. \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
+        }
+    }
+
+    private func pathDescription(_ path: [CodingKey]) -> String {
+        guard !path.isEmpty else {
+            return "$"
+        }
+
+        return path.map(\.stringValue).joined(separator: ".")
+    }
 }
 
 private struct ImportedConfigPayload: Decodable {
-    let servers: [String: ImportedServerConfig]?
-    let mcpServers: [String: ImportedServerConfig]?
+    let servers: [String: MCPServerConfig]?
+    let mcpServers: [String: MCPServerConfig]?
 }
 
 private struct ImportedNamedServer: Decodable {
     let name: String
-    let server: ImportedServerConfig
+    let server: MCPServerConfig
 
     private enum CodingKeys: String, CodingKey {
         case name
@@ -169,92 +264,6 @@ private struct ImportedNamedServer: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
-        server = try ImportedServerConfig(from: decoder)
-    }
-}
-
-private struct ImportedServerConfig: Decodable {
-    let transport: MCPServerTransportConfig?
-    let type: String?
-    let command: String?
-    let arguments: [String]
-    let environment: [String: String]
-    let currentDirectoryPath: String?
-    let url: URL?
-    let streaming: Bool?
-
-    private enum CodingKeys: String, CodingKey {
-        case transport
-        case type
-        case command
-        case arguments
-        case args
-        case environment
-        case env
-        case currentDirectoryPath
-        case cwd
-        case url
-        case streaming
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        transport = try container.decodeIfPresent(MCPServerTransportConfig.self, forKey: .transport)
-        type = try container.decodeIfPresent(String.self, forKey: .type)
-        command = try container.decodeIfPresent(String.self, forKey: .command)
-        let decodedArguments = try container.decodeIfPresent([String].self, forKey: .arguments)
-        let decodedArgs = try container.decodeIfPresent([String].self, forKey: .args)
-        arguments = decodedArguments ?? decodedArgs ?? []
-
-        let decodedEnvironment = try container.decodeIfPresent(
-            [String: String].self,
-            forKey: .environment
-        )
-        let decodedEnv = try container.decodeIfPresent([String: String].self, forKey: .env)
-        environment = decodedEnvironment ?? decodedEnv ?? [:]
-
-        let decodedCurrentDirectoryPath = try container.decodeIfPresent(
-            String.self,
-            forKey: .currentDirectoryPath
-        )
-        let decodedCWD = try container.decodeIfPresent(String.self, forKey: .cwd)
-        currentDirectoryPath = decodedCurrentDirectoryPath ?? decodedCWD
-        url = try container.decodeIfPresent(URL.self, forKey: .url)
-        streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
-    }
-
-    func toMCPServerConfig() throws -> MCPServerConfig {
-        if let transport {
-            return MCPServerConfig(transport: transport)
-        }
-
-        if let command {
-            return MCPServerConfig(
-                transport: .stdio(
-                    command: command,
-                    arguments: arguments,
-                    environment: environment,
-                    currentDirectoryPath: currentDirectoryPath
-                )
-            )
-        }
-
-        if let url {
-            return MCPServerConfig(
-                transport: .http(
-                    url: url,
-                    streaming: streaming
-                )
-            )
-        }
-
-        throw ValidationError(
-            """
-            Each imported server must define either:
-            - transport
-            - command for stdio
-            - url for HTTP
-            """
-        )
+        server = try MCPServerConfig(from: decoder)
     }
 }

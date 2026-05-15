@@ -100,28 +100,22 @@ Example config:
   },
   "mcpServers": {
     "12306-mcp": {
-      "transport": {
-        "type": "streamable_http",
-        "url": "https://mcp.api-inference.modelscope.net/442fe0e45a0148/mcp"
-      }
+      "type": "streamable_http",
+      "url": "https://mcp.api-inference.modelscope.net/442fe0e45a0148/mcp"
     },
     "filesystem": {
-      "transport": {
-        "type": "stdio",
-        "command": "npx",
-        "arguments": [
-          "-y",
-          "@modelcontextprotocol/server-filesystem",
-          "/tmp"
-        ],
-        "environment": {}
-      }
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/tmp"
+      ]
     }
   }
 }
 ```
 
-`servers` and `mcpServers` are both accepted. For HTTP-based MCP servers, `type: "http"` and `type: "streamable_http"` are both supported.
+`servers` and `mcpServers` are both accepted when reading config. New writes use `mcpServers`. For URL-based MCP servers, `type: "http"`, `type: "sse"`, and `type: "streamable_http"` are supported. `sse` uses the legacy MCP SSE handshake and the CLI disconnects after each command.
 
 ## Commands
 
@@ -148,6 +142,22 @@ Accepted input formats include:
 - a plain server map such as `{ "filesystem": { ... } }`
 
 For stdio servers, both `arguments` and the more common `args` are accepted. If the config file does not exist yet, `add` creates it automatically.
+
+### Discover servers
+
+List all configured servers:
+
+```bash
+mcp-span-cli discover
+```
+
+Search by server name keyword:
+
+```bash
+mcp-span-cli discover file
+```
+
+The output is a numbered list with the server name and a short transport summary.
 
 ### List tools
 

@@ -36,7 +36,7 @@ struct MCPSpanCLIConfig: Codable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(global, forKey: .global)
-        try container.encode(servers, forKey: .servers)
+        try container.encode(servers, forKey: .mcpServers)
     }
 }
 
@@ -58,13 +58,163 @@ enum OutputFormat: String, Codable, Sendable {
     case json
 }
 
-struct MCPServerConfig: Codable, Sendable {
-    var transport: MCPServerTransportConfig
+struct MCPServerConfig: Sendable {
+    var type: MCPServerType?
+    var command: String?
+    var arguments: [String]
+    var environment: [String: String]
+    var currentDirectoryPath: String?
+    var url: URL?
+    var streaming: Bool?
+
+    init(
+        type: MCPServerType? = nil,
+        command: String? = nil,
+        arguments: [String] = [],
+        environment: [String: String] = [:],
+        currentDirectoryPath: String? = nil,
+        url: URL? = nil,
+        streaming: Bool? = nil
+    ) {
+        self.type = type
+        self.command = command
+        self.arguments = arguments
+        self.environment = environment
+        self.currentDirectoryPath = currentDirectoryPath
+        self.url = url
+        self.streaming = streaming
+    }
+
+    var transport: MCPServerTransportConfig {
+        if let command {
+            return .stdio(
+                command: command,
+                arguments: arguments,
+                environment: environment,
+                currentDirectoryPath: currentDirectoryPath
+            )
+        }
+
+        return .http(url: url!, streaming: streaming)
+    }
 
     func endpoint(defaultHTTPStreaming: Bool) -> MCPClientEndpoint {
+        if let command {
+            return .stdio(
+                command: command,
+                arguments: arguments,
+                environment: environment,
+                currentDirectoryPath: currentDirectoryPath
+            )
+        }
+
+        if let url {
+            if type == .sse {
+                return .sse(url: url)
+            }
+
+            let shouldStream =
+                streaming
+                ?? (type == .streamableHTTP ? true : defaultHTTPStreaming)
+
+            return .http(
+                url: url,
+                streaming: shouldStream
+            )
+        }
+
+        preconditionFailure("MCPServerConfig must define command or url.")
+    }
+}
+
+extension MCPServerConfig: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case transport
+        case type
+        case command
+        case arguments
+        case args
+        case environment
+        case env
+        case currentDirectoryPath
+        case cwd
+        case url
+        case streaming
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let transport = try container.decodeIfPresent(
+            MCPServerTransportConfig.self,
+            forKey: .transport
+        ) {
+            self = MCPServerConfig(transport: transport)
+            return
+        }
+
+        type = try container.decodeIfPresent(MCPServerType.self, forKey: .type)
+        command = try container.decodeIfPresent(String.self, forKey: .command)
+
+        let decodedArguments = try container.decodeIfPresent([String].self, forKey: .arguments)
+        let decodedArgs = try container.decodeIfPresent([String].self, forKey: .args)
+        arguments = decodedArguments ?? decodedArgs ?? []
+
+        let decodedEnvironment = try container.decodeIfPresent(
+            [String: String].self,
+            forKey: .environment
+        )
+        let decodedEnv = try container.decodeIfPresent([String: String].self, forKey: .env)
+        environment = decodedEnvironment ?? decodedEnv ?? [:]
+
+        let decodedCurrentDirectoryPath = try container.decodeIfPresent(
+            String.self,
+            forKey: .currentDirectoryPath
+        )
+        let decodedCWD = try container.decodeIfPresent(String.self, forKey: .cwd)
+        currentDirectoryPath = decodedCurrentDirectoryPath ?? decodedCWD
+        url = try container.decodeIfPresent(URL.self, forKey: .url)
+        streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
+
+        if command == nil, url == nil {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Server must define command for stdio or url for HTTP/SSE."
+                )
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        if let type {
+            try container.encode(type, forKey: .type)
+        } else if url != nil {
+            try container.encode(MCPServerType.http, forKey: .type)
+        }
+
+        try container.encodeIfPresent(command, forKey: .command)
+
+        if !arguments.isEmpty {
+            try container.encode(arguments, forKey: .args)
+        }
+
+        if !environment.isEmpty {
+            try container.encode(environment, forKey: .env)
+        }
+
+        try container.encodeIfPresent(currentDirectoryPath, forKey: .cwd)
+        try container.encodeIfPresent(url?.absoluteString, forKey: .url)
+        try container.encodeIfPresent(streaming, forKey: .streaming)
+    }
+
+    private init(transport: MCPServerTransportConfig) {
         switch transport {
         case let .stdio(command, arguments, environment, currentDirectoryPath):
-            return .stdio(
+            self.init(
+                type: .stdio,
                 command: command,
                 arguments: arguments,
                 environment: environment,
@@ -72,12 +222,20 @@ struct MCPServerConfig: Codable, Sendable {
             )
 
         case let .http(url, streaming):
-            return .http(
+            self.init(
+                type: .http,
                 url: url,
-                streaming: streaming ?? defaultHTTPStreaming
+                streaming: streaming
             )
         }
     }
+}
+
+enum MCPServerType: String, Codable, Sendable {
+    case stdio
+    case http
+    case sse
+    case streamableHTTP = "streamable_http"
 }
 
 enum MCPServerTransportConfig: Codable, Sendable {
@@ -102,15 +260,9 @@ enum MCPServerTransportConfig: Codable, Sendable {
         case streaming
     }
 
-    private enum TransportType: String, Codable {
-        case stdio
-        case http
-        case streamableHTTP = "streamable_http"
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(TransportType.self, forKey: .type)
+        let type = try container.decode(MCPServerType.self, forKey: .type)
 
         switch type {
         case .stdio:
@@ -140,7 +292,7 @@ enum MCPServerTransportConfig: Codable, Sendable {
                 currentDirectoryPath: currentDirectoryPath
             )
 
-        case .http, .streamableHTTP:
+        case .http, .sse, .streamableHTTP:
             let url = try container.decode(URL.self, forKey: .url)
             let streaming = try container.decodeIfPresent(Bool.self, forKey: .streaming)
             self = .http(url: url, streaming: streaming)
@@ -152,15 +304,15 @@ enum MCPServerTransportConfig: Codable, Sendable {
 
         switch self {
         case let .stdio(command, arguments, environment, currentDirectoryPath):
-            try container.encode(TransportType.stdio, forKey: .type)
+            try container.encode(MCPServerType.stdio, forKey: .type)
             try container.encode(command, forKey: .command)
             try container.encode(arguments, forKey: .arguments)
             try container.encode(environment, forKey: .environment)
             try container.encodeIfPresent(currentDirectoryPath, forKey: .currentDirectoryPath)
 
         case let .http(url, streaming):
-            try container.encode(TransportType.http, forKey: .type)
-            try container.encode(url, forKey: .url)
+            try container.encode(MCPServerType.http, forKey: .type)
+            try container.encode(url.absoluteString, forKey: .url)
             try container.encodeIfPresent(streaming, forKey: .streaming)
         }
     }
